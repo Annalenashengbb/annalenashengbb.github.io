@@ -4,25 +4,65 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      const status = document.getElementById("status");
+      const model = document.getElementById("myModel");
+
+      model.addEventListener("model-loaded", () => {
+        status.textContent = "model loaded";
+      });
+
+      model.addEventListener("model-error", (e) => {
+        status.textContent = "model error";
+        console.log("model error", e);
+      });
+    });
+  </script>
+  <style>
+    body { margin: 0; }
+    #status {
+      position: fixed;
+      left: 12px;
+      top: 12px;
+      z-index: 9999;
+      background: rgba(0,0,0,.6);
+      color: #fff;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+  </style>
 </head>
 <body>
+  <div id="status">loading...</div>
+
   <a-scene
-    mindar-image="imageTargetSrc: ./targets.mind;"
+    mindar-image="imageTargetSrc: https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.mind;"
     color-space="sRGB"
     renderer="colorManagement: true, physicallyCorrectLights"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
   >
+    <a-assets timeout="30000">
+      <a-asset-item id="avatarModel" src="./model.glb"></a-asset-item>
+    </a-assets>
+
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
+    <a-entity light="type: ambient; intensity: 1.2"></a-entity>
+    <a-entity light="type: directional; intensity: 1.2" position="1 1 2"></a-entity>
+
     <a-entity mindar-image-target="targetIndex: 0">
-      <a-box
-        color="#4CC3D9"
-        depth="0.08"
-        height="0.2"
-        width="0.2"
-        position="0 0 0.1">
-      </a-box>
+      <a-box color="#4CC3D9" depth="0.05" height="0.05" width="0.05" position="0 0 0.1"></a-box>
+
+      <a-gltf-model
+        id="myModel"
+        src="#avatarModel"
+        position="0 0.08 0.05"
+        rotation="0 180 0"
+        scale="0.08 0.08 0.08">
+      </a-gltf-model>
     </a-entity>
   </a-scene>
 </body>
