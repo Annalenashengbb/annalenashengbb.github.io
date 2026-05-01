@@ -26,25 +26,18 @@
       device-orientation-permission-ui="enabled: false"
       embedded
     >
-      <a-assets>
-        <!-- 如果你有自己的模型，把文件命名为 model.glb 放到同目录，然后取消下面这一行的注释 -->
-        <!-- <a-asset-item id="demoModel" src="./model.glb"></a-asset-item> -->
-      </a-assets>
+     <a-assets>
+  <a-asset-item id="avatarModel" src="./model.glb"></a-asset-item>
+</a-assets>
 
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
-      <a-entity mindar-image-target="targetIndex: 0">
-        <!-- 先用一个立方体确认路径跑通 -->
-        <a-box position="0 0 0.1" depth="0.08" height="0.08" width="0.08" color="#4CC3D9"></a-box>
-
-        <!-- 以后有 3D 模型时，把立方体删掉，打开下面这一段 -->
-        <!-- <a-gltf-model
-          src="#demoModel"
-          position="0 0 0.1"
-          rotation="0 0 0"
-          scale="0.2 0.2 0.2"
-        ></a-gltf-model> -->
-      </a-entity>
+<a-entity mindar-image-target="targetIndex: 0">
+  <a-gltf-model
+    src="#avatarModel"
+    position="0 0 0.1"
+    rotation="0 0 0"
+    scale="0.3 0.3 0.3"
+  ></a-gltf-model>
+</a-entity>
     </a-scene>
   </body>
 </html>
