@@ -3,10 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>MindAR Card Test</title>
-
+  <title>MindAR Fullscreen</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    a-scene {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
 </head>
 <body>
   <a-scene
@@ -15,19 +29,21 @@
     renderer="colorManagement: true, physicallyCorrectLights"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
-    embedded
   >
+    <a-assets>
+      <a-asset-item id="avatarModel" src="./model.glb"></a-asset-item>
+    </a-assets>
+
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
     <a-entity mindar-image-target="targetIndex: 0">
-      <a-entity
-        gltf-model="url(./model.glb)"
+      <a-gltf-model
+        src="#avatarModel"
         position="0 0.15 0.1"
         rotation="0 180 0"
-        scale="1 1 1">
-      </a-entity>
+        scale="1 1 1"
+      ></a-gltf-model>
     </a-entity>
   </a-scene>
 </body>
 </html>
-
