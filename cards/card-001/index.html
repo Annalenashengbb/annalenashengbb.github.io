@@ -1,0 +1,104 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <style>
+    body { margin: 0; }
+    #status {
+      position: fixed;
+      left: 12px;
+      top: 12px;
+      z-index: 9999;
+      background: rgba(0,0,0,.65);
+      color: #fff;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div id="status">loading...</div>
+
+  <a-scene
+    mindar-image="imageTargetSrc: ./targets.mind;"
+    color-space="sRGB"
+    renderer="colorManagement: true, physicallyCorrectLights"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+  >
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <a-entity light="type: ambient; intensity: 1.2"></a-entity>
+    <a-entity light="type: directional; intensity: 1.2" position="1 1 2"></a-entity>
+
+    <a-entity id="card-target" mindar-image-target="targetIndex: 0">
+      <!-- 调试用，调好后可以删掉 -->
+      <a-box
+        color="#4CC3D9"
+        depth="0.05"
+        height="0.05"
+        width="0.05"
+        position="0 0 0.1">
+      </a-box>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      const status = document.getElementById("status");
+      const scene = document.querySelector("a-scene");
+      const target = document.getElementById("card-target");
+
+      // ===== 你以后主要改这里 =====
+      const MODEL_SRC = "./model.glb";
+      const MODEL_POSITION = "0 0.08 0.05";
+      const MODEL_ROTATION = "0 180 0";
+      const MODEL_SCALE = "0.04 0.04 0.04";
+      // =========================
+
+      let modelAdded = false;
+
+      scene.addEventListener("arReady", () => {
+        status.textContent = "camera ready";
+      });
+
+      scene.addEventListener("arError", () => {
+        status.textContent = "ar error";
+      });
+
+      target.addEventListener("targetFound", () => {
+        status.textContent = "target found";
+
+        if (modelAdded) return;
+        modelAdded = true;
+
+        const model = document.createElement("a-gltf-model");
+        model.setAttribute("src", MODEL_SRC);
+        model.setAttribute("position", MODEL_POSITION);
+        model.setAttribute("rotation", MODEL_ROTATION);
+        model.setAttribute("scale", MODEL_SCALE);
+
+        model.addEventListener("model-loaded", () => {
+          status.textContent = "target found / model loaded";
+        });
+
+        model.addEventListener("model-error", (e) => {
+          status.textContent = "target found / model error";
+          console.log(e);
+        });
+
+        target.appendChild(model);
+        status.textContent = "target found / loading model...";
+      });
+
+      target.addEventListener("targetLost", () => {
+        status.textContent = "target lost";
+      });
+    });
+  </script>
+</body>
+</html>
