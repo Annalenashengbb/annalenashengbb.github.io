@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>MindAR Debug</title>
+  <title>MindAR Box Debug</title>
 
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
@@ -16,6 +16,7 @@
       overflow: hidden;
       background: #000;
     }
+
     a-scene {
       position: fixed;
       inset: 0;
@@ -42,13 +43,6 @@
         width="0.2"
         position="0 0 0.1">
       </a-box>
-
-      <a-gltf-model
-        src="./model.glb"
-        position="0 0.15 0.1"
-        rotation="0 180 0"
-        scale="1 1 1">
-      </a-gltf-model>
     </a-entity>
   </a-scene>
 </body>
