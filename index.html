@@ -4,21 +4,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  <script>
-    window.addEventListener("DOMContentLoaded", () => {
-      const status = document.getElementById("status");
-      const model = document.getElementById("myModel");
-
-      model.addEventListener("model-loaded", () => {
-        status.textContent = "model loaded";
-      });
-
-      model.addEventListener("model-error", (e) => {
-        status.textContent = "model error";
-        console.log("model error", e);
-      });
-    });
-  </script>
   <style>
     body { margin: 0; }
     #status {
@@ -26,11 +11,12 @@
       left: 12px;
       top: 12px;
       z-index: 9999;
-      background: rgba(0,0,0,.6);
+      background: rgba(0,0,0,.65);
       color: #fff;
       padding: 8px 10px;
       border-radius: 8px;
       font-size: 14px;
+      line-height: 1.4;
     }
   </style>
 </head>
@@ -44,26 +30,68 @@
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
   >
-    <a-assets timeout="30000">
-      <a-asset-item id="avatarModel" src="./model.glb"></a-asset-item>
-    </a-assets>
-
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
     <a-entity light="type: ambient; intensity: 1.2"></a-entity>
     <a-entity light="type: directional; intensity: 1.2" position="1 1 2"></a-entity>
 
-    <a-entity mindar-image-target="targetIndex: 0">
-      <a-box color="#4CC3D9" depth="0.05" height="0.05" width="0.05" position="0 0 0.1"></a-box>
-
-      <a-gltf-model
-        id="myModel"
-        src="#avatarModel"
-        position="0 0.08 0.05"
-        rotation="0 180 0"
-        scale="0.08 0.08 0.08">
-      </a-gltf-model>
+    <a-entity id="the-target" mindar-image-target="targetIndex: 0">
+      <a-box
+        color="#4CC3D9"
+        depth="0.05"
+        height="0.05"
+        width="0.05"
+        position="0 0 0.1">
+      </a-box>
     </a-entity>
   </a-scene>
+
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      const status = document.getElementById("status");
+      const scene = document.querySelector("a-scene");
+      const target = document.getElementById("the-target");
+
+      let modelAdded = false;
+
+      scene.addEventListener("arReady", () => {
+        status.textContent = "camera ready";
+      });
+
+      scene.addEventListener("arError", () => {
+        status.textContent = "ar error";
+      });
+
+      target.addEventListener("targetFound", () => {
+        status.textContent = "target found";
+
+        if (modelAdded) return;
+        modelAdded = true;
+
+        const model = document.createElement("a-gltf-model");
+        model.setAttribute("id", "myModel");
+        model.setAttribute("src", "./model.glb");
+        model.setAttribute("position", "0 0.08 0.05");
+        model.setAttribute("rotation", "0 180 0");
+        model.setAttribute("scale", "0.04 0.04 0.04");
+
+        model.addEventListener("model-loaded", () => {
+          status.textContent = "target found / model loaded";
+        });
+
+        model.addEventListener("model-error", (e) => {
+          status.textContent = "target found / model error";
+          console.log("model error", e);
+        });
+
+        target.appendChild(model);
+        status.textContent = "target found / loading model...";
+      });
+
+      target.addEventListener("targetLost", () => {
+        status.textContent = "target lost";
+      });
+    });
+  </script>
 </body>
 </html>
