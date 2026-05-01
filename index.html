@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>MindAR Box Debug</title>
+  <title>MindAR Model Debug</title>
 
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
@@ -17,32 +17,62 @@
       background: #000;
     }
 
-    a-scene {
+    .tip {
       position: fixed;
-      inset: 0;
-      width: 100vw;
-      height: 100vh;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      z-index: 9999;
+      background: rgba(0,0,0,.6);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      line-height: 1.4;
     }
   </style>
 </head>
 <body>
+  <div class="tip">
+    先允许相机权限，然后把镜头对准你的目标图。<br>
+    先看蓝色方块有没有出现；方块有了，再看 3D 模型。
+  </div>
+
   <a-scene
-    mindar-image="imageTargetSrc: ./targets.mind;"
+    mindar-image="imageTargetSrc: ./targets.mind; uiScanning: yes; uiLoading: yes;"
     color-space="sRGB"
     renderer="colorManagement: true, physicallyCorrectLights"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
+    embedded
   >
+    <a-assets timeout="30000">
+      <a-asset-item id="demoModel" src="./model.glb"></a-asset-item>
+    </a-assets>
+
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
+    <!-- 显式加灯，排查更稳 -->
+    <a-entity light="type: ambient; intensity: 1.2"></a-entity>
+    <a-entity light="type: directional; intensity: 1.2" position="1 1 2"></a-entity>
+
     <a-entity mindar-image-target="targetIndex: 0">
+      <!-- 先保留这个蓝盒子，确认 tracking 没问题 -->
       <a-box
-        color="blue"
-        depth="0.08"
-        height="0.2"
-        width="0.2"
+        color="#4CC3D9"
+        depth="0.05"
+        height="0.05"
+        width="0.05"
         position="0 0 0.1">
       </a-box>
+
+      <!-- 你的 GLB -->
+      <a-gltf-model
+        src="#demoModel"
+        position="0 0.08 0.05"
+        rotation="0 0 0"
+        scale="0.08 0.08 0.08">
+      </a-gltf-model>
     </a-entity>
   </a-scene>
 </body>
