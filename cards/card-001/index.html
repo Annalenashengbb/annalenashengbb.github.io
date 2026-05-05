@@ -7,7 +7,7 @@
 
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  <script src="./config.js?v=6"></script>
+  <script src="./config.js?v=7"></script>
 
   <style>
     html, body {
@@ -68,41 +68,61 @@
       const target = document.getElementById("card-target");
 
       let built = false;
-      let spinRoot = null;
 
-      // 手指旋转参数
+      // 两层旋转根节点
+      let yawRoot = null;   // 左右转
+      let pitchRoot = null; // 上下翻
+
+      // 当前角度
+      let yawZ = 0;
+      let pitchX = 0;
+
+      // 拖动状态
       let dragging = false;
       let startX = 0;
-      let startSpinZ = 0;
-      let currentSpinZ = 0;
+      let startY = 0;
+      let startYawZ = 0;
+      let startPitchX = 0;
 
-      // 灵敏度：数字越大，转得越快
-      const ROTATE_SENSITIVITY = 0.25;
+      // 灵敏度
+      const YAW_SENSITIVITY = 0.25;   // 左右滑
+      const PITCH_SENSITIVITY = 0.25; // 上下滑
 
-      function applySpin() {
-        if (!spinRoot) return;
-        spinRoot.setAttribute("rotation", `0 0 ${currentSpinZ}`);
+      function applyRotation() {
+        if (!yawRoot || !pitchRoot) return;
+
+        // 左右：绕 Z 轴转
+        yawRoot.setAttribute("rotation", `0 0 ${yawZ}`);
+
+        // 上下：绕 X 轴翻
+        pitchRoot.setAttribute("rotation", `${pitchX} 0 0`);
       }
 
       target.addEventListener("targetFound", () => {
-        status.textContent = "target found · swipe left/right to rotate";
+        status.textContent = "target found · swipe in any direction";
 
         if (built) return;
         built = true;
 
-        // 这一层专门负责手势旋转
-        spinRoot = document.createElement("a-entity");
-        spinRoot.setAttribute("id", "spin-root");
-        spinRoot.setAttribute("rotation", "0 0 0");
-        target.appendChild(spinRoot);
+        // 第一层：左右转
+        yawRoot = document.createElement("a-entity");
+        yawRoot.setAttribute("id", "yaw-root");
+        yawRoot.setAttribute("rotation", "0 0 0");
+        target.appendChild(yawRoot);
 
-        // 这一层保留你 config.js 里的猫位置 / 朝向 / 大小
+        // 第二层：上下翻
+        pitchRoot = document.createElement("a-entity");
+        pitchRoot.setAttribute("id", "pitch-root");
+        pitchRoot.setAttribute("rotation", "0 0 0");
+        yawRoot.appendChild(pitchRoot);
+
+        // 真正的模型根节点（保留 config.js 里的初始摆放）
         const root = document.createElement("a-entity");
         root.setAttribute("id", "combo-root");
         root.setAttribute("position", cfg.catRoot.position);
         root.setAttribute("rotation", cfg.catRoot.rotation);
         root.setAttribute("scale", cfg.catRoot.scale);
-        spinRoot.appendChild(root);
+        pitchRoot.appendChild(root);
 
         // 小猫
         addModel(root, cfg.catModel, "0 0 0", "0 0 0", "1 1 1");
@@ -122,7 +142,7 @@
         rightHand.setAttribute("scale", cfg.handAnchors.right.scale || "1 1 1");
         root.appendChild(rightHand);
 
-        // 调试小球（如果 config.js 打开）
+        // 调试球（如果 config.js 里打开）
         if (cfg.debugHands) {
           const leftDebug = document.createElement("a-sphere");
           leftDebug.setAttribute("color", "red");
@@ -141,6 +161,7 @@
           rightHand
         };
 
+        // 这张卡上的所有挂件
         (cfg.attachments || []).forEach((item) => {
           const parent = parentMap[item.parent] || root;
           addModel(
@@ -152,32 +173,40 @@
           );
         });
 
-        status.textContent = "models added · swipe left/right";
+        status.textContent = "models added · swipe left/right/up/down";
       });
 
       target.addEventListener("targetLost", () => {
         status.textContent = "target lost";
       });
 
-      // 手指开始
+      // 手指按下
       document.addEventListener("touchstart", (e) => {
-        if (!spinRoot) return;
+        if (!yawRoot || !pitchRoot) return;
         if (!e.touches || e.touches.length !== 1) return;
 
         dragging = true;
         startX = e.touches[0].clientX;
-        startSpinZ = currentSpinZ;
+        startY = e.touches[0].clientY;
+        startYawZ = yawZ;
+        startPitchX = pitchX;
       }, { passive: true });
 
       // 手指移动
       document.addEventListener("touchmove", (e) => {
-        if (!dragging || !spinRoot) return;
+        if (!dragging || !yawRoot || !pitchRoot) return;
         if (!e.touches || e.touches.length !== 1) return;
 
         const dx = e.touches[0].clientX - startX;
-        currentSpinZ = startSpinZ + dx * ROTATE_SENSITIVITY;
-        applySpin();
+        const dy = e.touches[0].clientY - startY;
 
+        // 左右滑：左右转
+        yawZ = startYawZ + dx * YAW_SENSITIVITY;
+
+        // 上下滑：上下翻
+        pitchX = startPitchX - dy * PITCH_SENSITIVITY;
+
+        applyRotation();
         e.preventDefault();
       }, { passive: false });
 
