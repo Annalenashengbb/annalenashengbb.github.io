@@ -7,7 +7,7 @@
 
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  <script src="./config.js?v=7"></script>
+  <script src="./config.js?v=8"></script>
 
   <style>
     html, body {
@@ -69,63 +69,63 @@
 
       let built = false;
 
-      // 两层旋转根节点
-      let yawRoot = null;   // 左右转
+      // 两层交互旋转
+      let yawRoot = null;   // 左右“转身”
       let pitchRoot = null; // 上下翻
 
       // 当前角度
-      let yawZ = 0;
+      let yawY = 0;
       let pitchX = 0;
 
       // 拖动状态
       let dragging = false;
       let startX = 0;
       let startY = 0;
-      let startYawZ = 0;
+      let startYawY = 0;
       let startPitchX = 0;
 
       // 灵敏度
-      const YAW_SENSITIVITY = 0.25;   // 左右滑
-      const PITCH_SENSITIVITY = 0.25; // 上下滑
+      const YAW_SENSITIVITY = 0.25;
+      const PITCH_SENSITIVITY = 0.25;
 
       function applyRotation() {
         if (!yawRoot || !pitchRoot) return;
 
-        // 左右：绕 Z 轴转
-        yawRoot.setAttribute("rotation", `0 0 ${yawZ}`);
+        // 左右滑：像人物左右转身
+        yawRoot.setAttribute("rotation", `0 ${yawY} 0`);
 
-        // 上下：绕 X 轴翻
+        // 上下滑：上下翻，方向和手指一致
         pitchRoot.setAttribute("rotation", `${pitchX} 0 0`);
       }
 
       target.addEventListener("targetFound", () => {
-        status.textContent = "target found · swipe in any direction";
+        status.textContent = "target found · swipe left/right/up/down";
 
         if (built) return;
         built = true;
 
-        // 第一层：左右转
+        // 第一层：先应用 config.js 里的基础摆放
+        const comboBase = document.createElement("a-entity");
+        comboBase.setAttribute("id", "combo-base");
+        comboBase.setAttribute("position", cfg.catRoot.position);
+        comboBase.setAttribute("rotation", cfg.catRoot.rotation);
+        comboBase.setAttribute("scale", cfg.catRoot.scale);
+        target.appendChild(comboBase);
+
+        // 第二层：左右转身（本地 Y 轴）
         yawRoot = document.createElement("a-entity");
         yawRoot.setAttribute("id", "yaw-root");
         yawRoot.setAttribute("rotation", "0 0 0");
-        target.appendChild(yawRoot);
+        comboBase.appendChild(yawRoot);
 
-        // 第二层：上下翻
+        // 第三层：上下翻（本地 X 轴）
         pitchRoot = document.createElement("a-entity");
         pitchRoot.setAttribute("id", "pitch-root");
         pitchRoot.setAttribute("rotation", "0 0 0");
         yawRoot.appendChild(pitchRoot);
 
-        // 真正的模型根节点（保留 config.js 里的初始摆放）
-        const root = document.createElement("a-entity");
-        root.setAttribute("id", "combo-root");
-        root.setAttribute("position", cfg.catRoot.position);
-        root.setAttribute("rotation", cfg.catRoot.rotation);
-        root.setAttribute("scale", cfg.catRoot.scale);
-        pitchRoot.appendChild(root);
-
         // 小猫
-        addModel(root, cfg.catModel, "0 0 0", "0 0 0", "1 1 1");
+        addModel(pitchRoot, cfg.catModel, "0 0 0", "0 0 0", "1 1 1");
 
         // 左右手锚点
         const leftHand = document.createElement("a-entity");
@@ -133,16 +133,16 @@
         leftHand.setAttribute("position", cfg.handAnchors.left.position);
         leftHand.setAttribute("rotation", cfg.handAnchors.left.rotation || "0 0 0");
         leftHand.setAttribute("scale", cfg.handAnchors.left.scale || "1 1 1");
-        root.appendChild(leftHand);
+        pitchRoot.appendChild(leftHand);
 
         const rightHand = document.createElement("a-entity");
         rightHand.setAttribute("id", "right-hand");
         rightHand.setAttribute("position", cfg.handAnchors.right.position);
         rightHand.setAttribute("rotation", cfg.handAnchors.right.rotation || "0 0 0");
         rightHand.setAttribute("scale", cfg.handAnchors.right.scale || "1 1 1");
-        root.appendChild(rightHand);
+        pitchRoot.appendChild(rightHand);
 
-        // 调试球（如果 config.js 里打开）
+        // 调试球（如果 config.js 开了）
         if (cfg.debugHands) {
           const leftDebug = document.createElement("a-sphere");
           leftDebug.setAttribute("color", "red");
@@ -156,14 +156,14 @@
         }
 
         const parentMap = {
-          root,
+          root: pitchRoot,
           leftHand,
           rightHand
         };
 
-        // 这张卡上的所有挂件
+        // 所有挂件
         (cfg.attachments || []).forEach((item) => {
-          const parent = parentMap[item.parent] || root;
+          const parent = parentMap[item.parent] || pitchRoot;
           addModel(
             parent,
             item.src,
@@ -173,7 +173,7 @@
           );
         });
 
-        status.textContent = "models added · swipe left/right/up/down";
+        status.textContent = "models added · swipe freely";
       });
 
       target.addEventListener("targetLost", () => {
@@ -188,7 +188,7 @@
         dragging = true;
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
-        startYawZ = yawZ;
+        startYawY = yawY;
         startPitchX = pitchX;
       }, { passive: true });
 
@@ -200,17 +200,16 @@
         const dx = e.touches[0].clientX - startX;
         const dy = e.touches[0].clientY - startY;
 
-        // 左右滑：左右转
-        yawZ = startYawZ + dx * YAW_SENSITIVITY;
+        // 手指往右，模型往右转
+        yawY = startYawY + dx * YAW_SENSITIVITY;
 
-        // 上下滑：上下翻
-        pitchX = startPitchX - dy * PITCH_SENSITIVITY;
+        // 手指往下，模型往下翻（方向和手指一致）
+        pitchX = startPitchX + dy * PITCH_SENSITIVITY;
 
         applyRotation();
         e.preventDefault();
       }, { passive: false });
 
-      // 手指结束
       document.addEventListener("touchend", () => {
         dragging = false;
       }, { passive: true });
