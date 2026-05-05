@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>MindAR Shared Player</title>
+
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      touch-action: none;
+      background: #000;
+    }
+    #status {
+      position: fixed;
+      left: 12px;
+      top: 12px;
+      z-index: 9999;
+      background: rgba(0,0,0,.65);
+      color: #fff;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.4;
+      max-width: calc(100vw - 24px);
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div id="status">loading...</div>
+
+  <script>
+    const DEFAULTS = {
+      catModel: "/assets/models/cat.glb",
+      catRoot: {
+        position: "0 0 0.002",
+        rotation: "90 0 180",
+        scale: "1.7 1.7 1.7"
+      },
+      handAnchors: {
+        left:  { position: "-0.028 0.078 0.002" },
+        right: { position: "0.028 0.078 0.002" }
+      },
+      debugHands: false,
+      icons: {
+        green:  { src: "/assets/models/green.glb",  position: "0 0 0", rotation: "0 0 0", scale: "1 1 1" },
+        blue:   { src: "/assets/models/blue.glb",   position: "0 0 0", rotation: "0 0 0", scale: "1 1 1" },
+        brown:  { src: "/assets/models/brown.glb",  position: "0 0 0", rotation: "0 0 0", scale: "1 1 1" },
+        yellow: { src: "/assets/models/yellow.glb", position: "0 0 0", rotation: "0 0 0", scale: "1 1 1" },
+        red:    { src: "/assets/models/red.glb",    position: "0 0 0", rotation: "0 0 0", scale: "1 1 1" },
+        gray:   { src: "/assets/models/gray.glb",   position: "0 0 0", rotation: "0 0 0", scale: "1 1 1" }
+      }
+    };
+
+    function merge(base, patch) {
+      return Object.assign({}, base || {}, patch || {});
+    }
+
+    function addModel(parent, src, position, rotation, scale) {
+      const el = document.createElement("a-gltf-model");
+      el.setAttribute("src", src);
+      el.setAttribute("position", position || "0 0 0");
+      el.setAttribute("rotation", rotation || "0 0 0");
+      el.setAttribute("scale", scale || "1 1 1");
+      parent.appendChild(el);
+      return el;
+    }
+
+    async function boot() {
+      const status = document.getElementById("status");
+      const params = new URLSearchParams(location.search);
+      const cardId = params.get("card");
+
+      if (!cardId) {
+        status.textContent = "missing query param\nUse: /player/?card=card-001";
+        return;
+      }
+
+      let cardConfig;
+      try {
+        const res = await fetch(`/cards/${cardId}/config.json`, { cache: "no-store" });
+        if (!res.ok) throw new Error(`config ${res.status}`);
+        cardConfig = await res.json();
+      } catch (err) {
+        status.textContent = `failed to load config.json for ${cardId}\n${err}`;
+        return;
+      }
+
+      const scene = document.createElement("a-scene");
+      scene.setAttribute("mindar-image", `imageTargetSrc: /cards/${cardId}/targets.mind; uiScanning: yes; uiLoading: yes; maxTrack: 1;`);
+      scene.setAttribute("color-space", "sRGB");
+      scene.setAttribute("renderer", "colorManagement: true, physicallyCorrectLights");
+      scene.setAttribute("vr-mode-ui", "enabled: false");
+      scene.setAttribute("device-orientation-permission-ui", "enabled: false");
+
+      const camera = document.createElement("a-camera");
+      camera.setAttribute("position", "0 0 0");
+      camera.setAttribute("look-controls", "enabled: false");
+      scene.appendChild(camera);
+
+      const ambient = document.createElement("a-entity");
+      ambient.setAttribute("light", "type: ambient; intensity: 1.2");
+      scene.appendChild(ambient);
+
+      const dir = document.createElement("a-entity");
+      dir.setAttribute("light", "type: directional; intensity: 1.2");
+      dir.setAttribute("position", "1 1 2");
+      scene.appendChild(dir);
+
+      const target = document.createElement("a-entity");
+      target.setAttribute("id", "card-target");
+      target.setAttribute("mindar-image-target", "targetIndex: 0");
+      scene.appendChild(target);
+
+      document.body.appendChild(scene);
+
+      const finalCfg = {
+        catModel: cardConfig.catModel || DEFAULTS.catModel,
+        catRoot: merge(DEFAULTS.catRoot, cardConfig.overrides?.catRoot),
+        handAnchors: {
+          left: merge(DEFAULTS.handAnchors.left, cardConfig.overrides?.handAnchors?.left),
+          right: merge(DEFAULTS.handAnchors.right, cardConfig.overrides?.handAnchors?.right)
+        },
+        debugHands: cardConfig.debugHands ?? DEFAULTS.debugHands,
+        left: cardConfig.left || null,
+        right: cardConfig.right || null,
+        extras: Array.isArray(cardConfig.extras) ? cardConfig.extras : [],
+        leftCfg: cardConfig.left ? merge(DEFAULTS.icons[cardConfig.left], cardConfig.overrides?.left) : null,
+        rightCfg: cardConfig.right ? merge(DEFAULTS.icons[cardConfig.right], cardConfig.overrides?.right) : null
+      };
+
+      let built = false;
+      let yawRoot = null;
+      let pitchRoot = null;
+      let yawY = 0;
+      let pitchX = 0;
+      let dragging = false;
+      let startX = 0;
+      let startY = 0;
+      let startYawY = 0;
+      let startPitchX = 0;
+      const YAW_SENSITIVITY = 0.25;
+      const PITCH_SENSITIVITY = 0.25;
+
+      function applyRotation() {
+        if (!yawRoot || !pitchRoot) return;
+        yawRoot.setAttribute("rotation", `0 ${yawY} 0`);
+        pitchRoot.setAttribute("rotation", `${pitchX} 0 0`);
+      }
+
+      target.addEventListener("targetFound", () => {
+        status.textContent = `target found: ${cardId}\nSwipe to rotate`;
+        if (built) return;
+        built = true;
+
+        const comboBase = document.createElement("a-entity");
+        comboBase.setAttribute("id", "combo-base");
+        comboBase.setAttribute("position", finalCfg.catRoot.position);
+        comboBase.setAttribute("rotation", finalCfg.catRoot.rotation);
+        comboBase.setAttribute("scale", finalCfg.catRoot.scale);
+        target.appendChild(comboBase);
+
+        yawRoot = document.createElement("a-entity");
+        yawRoot.setAttribute("id", "yaw-root");
+        yawRoot.setAttribute("rotation", "0 0 0");
+        comboBase.appendChild(yawRoot);
+
+        pitchRoot = document.createElement("a-entity");
+        pitchRoot.setAttribute("id", "pitch-root");
+        pitchRoot.setAttribute("rotation", "0 0 0");
+        yawRoot.appendChild(pitchRoot);
+
+        addModel(pitchRoot, finalCfg.catModel, "0 0 0", "0 0 0", "1 1 1");
+
+        const leftHand = document.createElement("a-entity");
+        leftHand.setAttribute("id", "left-hand");
+        leftHand.setAttribute("position", finalCfg.handAnchors.left.position);
+        leftHand.setAttribute("rotation", finalCfg.handAnchors.left.rotation || "0 0 0");
+        leftHand.setAttribute("scale", finalCfg.handAnchors.left.scale || "1 1 1");
+        pitchRoot.appendChild(leftHand);
+
+        const rightHand = document.createElement("a-entity");
+        rightHand.setAttribute("id", "right-hand");
+        rightHand.setAttribute("position", finalCfg.handAnchors.right.position);
+        rightHand.setAttribute("rotation", finalCfg.handAnchors.right.rotation || "0 0 0");
+        rightHand.setAttribute("scale", finalCfg.handAnchors.right.scale || "1 1 1");
+        pitchRoot.appendChild(rightHand);
+
+        if (finalCfg.debugHands) {
+          const leftDebug = document.createElement("a-sphere");
+          leftDebug.setAttribute("color", "red");
+          leftDebug.setAttribute("radius", "0.01");
+          leftHand.appendChild(leftDebug);
+
+          const rightDebug = document.createElement("a-sphere");
+          rightDebug.setAttribute("color", "blue");
+          rightDebug.setAttribute("radius", "0.01");
+          rightHand.appendChild(rightDebug);
+        }
+
+        const parentMap = { root: pitchRoot, leftHand, rightHand };
+
+        if (finalCfg.leftCfg) {
+          addModel(leftHand, finalCfg.leftCfg.src, finalCfg.leftCfg.position, finalCfg.leftCfg.rotation, finalCfg.leftCfg.scale);
+        }
+
+        if (finalCfg.rightCfg) {
+          addModel(rightHand, finalCfg.rightCfg.src, finalCfg.rightCfg.position, finalCfg.rightCfg.rotation, finalCfg.rightCfg.scale);
+        }
+
+        (finalCfg.extras || []).forEach((item) => {
+          const baseIcon = DEFAULTS.icons[item.icon] || {};
+          const merged = merge(baseIcon, item);
+          const parent = parentMap[item.parent] || pitchRoot;
+          addModel(parent, merged.src, merged.position, merged.rotation, merged.scale);
+        });
+
+        status.textContent = `models added: ${cardId}\nSwipe to rotate`;
+      });
+
+      target.addEventListener("targetLost", () => {
+        status.textContent = `target lost: ${cardId}`;
+      });
+
+      document.addEventListener("touchstart", (e) => {
+        if (!yawRoot || !pitchRoot) return;
+        if (!e.touches || e.touches.length !== 1) return;
+        dragging = true;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        startYawY = yawY;
+        startPitchX = pitchX;
+      }, { passive: true });
+
+      document.addEventListener("touchmove", (e) => {
+        if (!dragging || !yawRoot || !pitchRoot) return;
+        if (!e.touches || e.touches.length !== 1) return;
+        const dx = e.touches[0].clientX - startX;
+        const dy = e.touches[0].clientY - startY;
+        yawY = startYawY + dx * YAW_SENSITIVITY;
+        pitchX = startPitchX + dy * PITCH_SENSITIVITY;
+        applyRotation();
+        e.preventDefault();
+      }, { passive: false });
+
+      document.addEventListener("touchend", () => {
+        dragging = false;
+      }, { passive: true });
+
+      document.addEventListener("touchcancel", () => {
+        dragging = false;
+      }, { passive: true });
+    }
+
+    boot();
+  </script>
+</body>
+</html>
