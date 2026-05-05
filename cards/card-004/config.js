@@ -27,7 +27,7 @@ window.CARD_CONFIG = {
   attachments: [
     {
       parent: "leftHand",
-      src: "/assets/models/grey.glb",
+      src: "/assets/models/blue.glb",
       position: "0 0.003 0",
       rotation: "0 0 0",
       scale: "1 1 1"
