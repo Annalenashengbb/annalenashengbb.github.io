@@ -4,7 +4,7 @@ window.CARD_CONFIG = {
 
   // 整个“小猫+手上物件”组合在卡面上的位置、方向、大小
   catRoot: {
-    position: "0 -0.005 0.001",
+    position: "0 -0.009 0.001",
     rotation: "0 0 0",
     scale: "36 36 36"
   },
