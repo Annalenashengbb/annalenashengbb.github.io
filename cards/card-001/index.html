@@ -7,7 +7,7 @@
 
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  <script src="./config.js?v=8"></script>
+  <script src="./config.js?v=10"></script>
 
   <style>
     html, body {
@@ -62,131 +62,51 @@
       return el;
     }
 
-<script>
-  async function loadMergedConfig() {
-    // 先拿当前 config.js 作为基础模板
-    const cfg = JSON.parse(JSON.stringify(window.CARD_CONFIG || {}));
-
-    try {
-      const res = await fetch("./config.json?v=1", { cache: "no-store" });
-      if (!res.ok) return cfg;
-
-      const data = await res.json();
-
-      const ICONS = {
-        green: "/assets/models/green.glb",
-        blue: "/assets/models/blue.glb",
-        brown: "/assets/models/brown.glb",
-        yellow: "/assets/models/yellow.glb",
-        red: "/assets/models/red.glb",
-        gray: "/assets/models/gray.glb"
-      };
-
-      // 如果 config.json 指定了左右手，就覆盖 attachments
-      if (data.left || data.right) {
-        cfg.attachments = [];
-
-        if (data.left) {
-          cfg.attachments.push({
-            parent: "leftHand",
-            src: ICONS[data.left],
-            position: "0 0.003 0",
-            rotation: "0 0 0",
-            scale: "1 1 1"
-          });
-        }
-
-        if (data.right) {
-          cfg.attachments.push({
-            parent: "rightHand",
-            src: ICONS[data.right],
-            position: "0 0.003 0",
-            rotation: "0 0 0",
-            scale: "1 1 1"
-          });
-        }
-      }
-
-      // 如果 config.json 有特殊覆盖值，就覆盖基础模板
-      if (data.overrides) {
-        if (data.overrides.catRoot) {
-          Object.assign(cfg.catRoot, data.overrides.catRoot);
-        }
-
-        if (data.overrides.handAnchors?.left) {
-          Object.assign(cfg.handAnchors.left, data.overrides.handAnchors.left);
-        }
-
-        if (data.overrides.handAnchors?.right) {
-          Object.assign(cfg.handAnchors.right, data.overrides.handAnchors.right);
-        }
-
-        const leftAttachment = cfg.attachments.find(a => a.parent === "leftHand");
-        const rightAttachment = cfg.attachments.find(a => a.parent === "rightHand");
-
-        if (data.overrides.left && leftAttachment) {
-          Object.assign(leftAttachment, data.overrides.left);
-        }
-
-        if (data.overrides.right && rightAttachment) {
-          Object.assign(rightAttachment, data.overrides.right);
-        }
-
-        if (typeof data.overrides.debugHands === "boolean") {
-          cfg.debugHands = data.overrides.debugHands;
-        }
-      }
-
-      return cfg;
-    } catch (err) {
-      console.log("config.json not loaded, fallback to config.js", err);
-      return cfg;
-    }
-  }
-    
-   window.addEventListener("DOMContentLoaded", async () => {
-     const cfg = await loadMergedConfig();
+    window.addEventListener("DOMContentLoaded", () => {
       const status = document.getElementById("status");
       const target = document.getElementById("card-target");
 
+      if (!window.CARD_CONFIG) {
+        status.textContent = "config.js not loaded";
+        return;
+      }
+
+      const cfg = window.CARD_CONFIG;
+
       let built = false;
 
-      // 两层交互旋转
-      let yawRoot = null;   // 左右“转身”
+      let yawRoot = null;   // 左右转身
       let pitchRoot = null; // 上下翻
 
-      // 当前角度
       let yawY = 0;
       let pitchX = 0;
 
-      // 拖动状态
       let dragging = false;
       let startX = 0;
       let startY = 0;
       let startYawY = 0;
       let startPitchX = 0;
 
-      // 灵敏度
       const YAW_SENSITIVITY = 0.25;
       const PITCH_SENSITIVITY = 0.25;
 
       function applyRotation() {
         if (!yawRoot || !pitchRoot) return;
 
-        // 左右滑：像人物左右转身
+        // 手指往右，模型往右转
         yawRoot.setAttribute("rotation", `0 ${yawY} 0`);
 
-        // 上下滑：上下翻，方向和手指一致
+        // 手指往下，模型往下翻
         pitchRoot.setAttribute("rotation", `${pitchX} 0 0`);
       }
 
       target.addEventListener("targetFound", () => {
-        status.textContent = "target found · swipe left/right/up/down";
+        status.textContent = "target found";
 
         if (built) return;
         built = true;
 
-        // 第一层：先应用 config.js 里的基础摆放
+        // 先应用 config.js 里的基础摆放
         const comboBase = document.createElement("a-entity");
         comboBase.setAttribute("id", "combo-base");
         comboBase.setAttribute("position", cfg.catRoot.position);
@@ -194,13 +114,13 @@
         comboBase.setAttribute("scale", cfg.catRoot.scale);
         target.appendChild(comboBase);
 
-        // 第二层：左右转身（本地 Y 轴）
+        // 左右转身
         yawRoot = document.createElement("a-entity");
         yawRoot.setAttribute("id", "yaw-root");
         yawRoot.setAttribute("rotation", "0 0 0");
         comboBase.appendChild(yawRoot);
 
-        // 第三层：上下翻（本地 X 轴）
+        // 上下翻
         pitchRoot = document.createElement("a-entity");
         pitchRoot.setAttribute("id", "pitch-root");
         pitchRoot.setAttribute("rotation", "0 0 0");
@@ -224,7 +144,6 @@
         rightHand.setAttribute("scale", cfg.handAnchors.right.scale || "1 1 1");
         pitchRoot.appendChild(rightHand);
 
-        // 调试球（如果 config.js 开了）
         if (cfg.debugHands) {
           const leftDebug = document.createElement("a-sphere");
           leftDebug.setAttribute("color", "red");
@@ -243,7 +162,6 @@
           rightHand
         };
 
-        // 所有挂件
         (cfg.attachments || []).forEach((item) => {
           const parent = parentMap[item.parent] || pitchRoot;
           addModel(
@@ -255,14 +173,13 @@
           );
         });
 
-        status.textContent = "models added · swipe freely";
+        status.textContent = "models added";
       });
 
       target.addEventListener("targetLost", () => {
         status.textContent = "target lost";
       });
 
-      // 手指按下
       document.addEventListener("touchstart", (e) => {
         if (!yawRoot || !pitchRoot) return;
         if (!e.touches || e.touches.length !== 1) return;
@@ -274,7 +191,6 @@
         startPitchX = pitchX;
       }, { passive: true });
 
-      // 手指移动
       document.addEventListener("touchmove", (e) => {
         if (!dragging || !yawRoot || !pitchRoot) return;
         if (!e.touches || e.touches.length !== 1) return;
@@ -285,7 +201,7 @@
         // 手指往右，模型往右转
         yawY = startYawY + dx * YAW_SENSITIVITY;
 
-        // 手指往下，模型往下翻（方向和手指一致）
+        // 手指往下，模型往下翻
         pitchX = startPitchX + dy * PITCH_SENSITIVITY;
 
         applyRotation();
