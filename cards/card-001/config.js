@@ -6,7 +6,7 @@ window.CARD_CONFIG = {
   catRoot: {
     position: "0 0 0.005",
     rotation: "0 180 0",
-    scale: "100 100 100"
+    scale: "30 30 30"
   },
 
   // 左右手的锚点位置（相对于小猫）
