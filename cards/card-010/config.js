@@ -23,11 +23,11 @@ window.CARD_CONFIG = {
   debugHands: false,
 
   // 这张卡的模型组合
-  // 左手 green，右手 blue
+  // 左手 yellow，右手 blue
   attachments: [
     {
       parent: "leftHand",
-      src: "/assets/models/green.glb",
+      src: "/assets/models/yellow.glb",
       position: "0 0.003 0",
       rotation: "0 0 0",
       scale: "1 1 1"
