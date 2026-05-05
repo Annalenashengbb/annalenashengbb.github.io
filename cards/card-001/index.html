@@ -62,8 +62,90 @@
       return el;
     }
 
-    window.addEventListener("DOMContentLoaded", () => {
-      const cfg = window.CARD_CONFIG;
+<script>
+  async function loadMergedConfig() {
+    // 先拿当前 config.js 作为基础模板
+    const cfg = JSON.parse(JSON.stringify(window.CARD_CONFIG || {}));
+
+    try {
+      const res = await fetch("./config.json?v=1", { cache: "no-store" });
+      if (!res.ok) return cfg;
+
+      const data = await res.json();
+
+      const ICONS = {
+        green: "/assets/models/green.glb",
+        blue: "/assets/models/blue.glb",
+        brown: "/assets/models/brown.glb",
+        yellow: "/assets/models/yellow.glb",
+        red: "/assets/models/red.glb",
+        gray: "/assets/models/gray.glb"
+      };
+
+      // 如果 config.json 指定了左右手，就覆盖 attachments
+      if (data.left || data.right) {
+        cfg.attachments = [];
+
+        if (data.left) {
+          cfg.attachments.push({
+            parent: "leftHand",
+            src: ICONS[data.left],
+            position: "0 0.003 0",
+            rotation: "0 0 0",
+            scale: "1 1 1"
+          });
+        }
+
+        if (data.right) {
+          cfg.attachments.push({
+            parent: "rightHand",
+            src: ICONS[data.right],
+            position: "0 0.003 0",
+            rotation: "0 0 0",
+            scale: "1 1 1"
+          });
+        }
+      }
+
+      // 如果 config.json 有特殊覆盖值，就覆盖基础模板
+      if (data.overrides) {
+        if (data.overrides.catRoot) {
+          Object.assign(cfg.catRoot, data.overrides.catRoot);
+        }
+
+        if (data.overrides.handAnchors?.left) {
+          Object.assign(cfg.handAnchors.left, data.overrides.handAnchors.left);
+        }
+
+        if (data.overrides.handAnchors?.right) {
+          Object.assign(cfg.handAnchors.right, data.overrides.handAnchors.right);
+        }
+
+        const leftAttachment = cfg.attachments.find(a => a.parent === "leftHand");
+        const rightAttachment = cfg.attachments.find(a => a.parent === "rightHand");
+
+        if (data.overrides.left && leftAttachment) {
+          Object.assign(leftAttachment, data.overrides.left);
+        }
+
+        if (data.overrides.right && rightAttachment) {
+          Object.assign(rightAttachment, data.overrides.right);
+        }
+
+        if (typeof data.overrides.debugHands === "boolean") {
+          cfg.debugHands = data.overrides.debugHands;
+        }
+      }
+
+      return cfg;
+    } catch (err) {
+      console.log("config.json not loaded, fallback to config.js", err);
+      return cfg;
+    }
+  }
+    
+   window.addEventListener("DOMContentLoaded", async () => {
+     const cfg = await loadMergedConfig();
       const status = document.getElementById("status");
       const target = document.getElementById("card-target");
 
