@@ -4,9 +4,9 @@ window.CARD_CONFIG = {
 
   // 整个“小猫+手上物件”组合在卡面上的位置、方向、大小
   catRoot: {
-    position: "0 0 0.005",
-    rotation: "0 0 0",
-    scale: "5 5 5"
+    position: "0 0 0.002",
+    rotation: "0 180 0",
+    scale: "1.7 1.7 1.7"
   },
 
   // 左右手的锚点位置（相对于小猫）
