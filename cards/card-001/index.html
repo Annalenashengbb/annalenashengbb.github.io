@@ -1,11 +1,22 @@
 <!doctype html>
-<html>
+<html lang="zh-CN">
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>MindAR Card</title>
+
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <script src="./config.js"></script>
+
   <style>
-    body { margin: 0; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
     #status {
       position: fixed;
       left: 12px;
@@ -17,6 +28,7 @@
       border-radius: 8px;
       font-size: 14px;
       line-height: 1.4;
+      max-width: calc(100vw - 24px);
     }
   </style>
 </head>
@@ -24,7 +36,7 @@
   <div id="status">loading...</div>
 
   <a-scene
-    mindar-image="imageTargetSrc: ./targets.mind;"
+    mindar-image="imageTargetSrc: ./targets.mind; uiScanning: yes; uiLoading: yes; maxTrack: 1;"
     color-space="sRGB"
     renderer="colorManagement: true, physicallyCorrectLights"
     vr-mode-ui="enabled: false"
@@ -35,64 +47,90 @@
     <a-entity light="type: ambient; intensity: 1.2"></a-entity>
     <a-entity light="type: directional; intensity: 1.2" position="1 1 2"></a-entity>
 
-    <a-entity id="card-target" mindar-image-target="targetIndex: 0">
-      <!-- 调试用，调好后可以删掉 -->
-      <a-box
-        color="#4CC3D9"
-        depth="0.05"
-        height="0.05"
-        width="0.05"
-        position="0 0 0.1">
-      </a-box>
-    </a-entity>
+    <a-entity id="card-target" mindar-image-target="targetIndex: 0"></a-entity>
   </a-scene>
 
   <script>
+    function addModel(parent, src, position, rotation, scale) {
+      const el = document.createElement("a-gltf-model");
+      el.setAttribute("src", src);
+      el.setAttribute("position", position || "0 0 0");
+      el.setAttribute("rotation", rotation || "0 0 0");
+      el.setAttribute("scale", scale || "1 1 1");
+      parent.appendChild(el);
+      return el;
+    }
+
     window.addEventListener("DOMContentLoaded", () => {
+      const cfg = window.CARD_CONFIG;
       const status = document.getElementById("status");
-      const scene = document.querySelector("a-scene");
       const target = document.getElementById("card-target");
 
-      // ===== 你以后主要改这里 =====
-      const MODEL_SRC = "./model.glb";
-      const MODEL_POSITION = "0 0.08 0.05";
-      const MODEL_ROTATION = "0 180 0";
-      const MODEL_SCALE = "0.04 0.04 0.04";
-      // =========================
-
-      let modelAdded = false;
-
-      scene.addEventListener("arReady", () => {
-        status.textContent = "camera ready";
-      });
-
-      scene.addEventListener("arError", () => {
-        status.textContent = "ar error";
-      });
+      let built = false;
 
       target.addEventListener("targetFound", () => {
         status.textContent = "target found";
+        if (built) return;
+        built = true;
 
-        if (modelAdded) return;
-        modelAdded = true;
+        // 根节点：以后改猫的位置/旋转/缩放，只改这里
+        const root = document.createElement("a-entity");
+        root.setAttribute("id", "combo-root");
+        root.setAttribute("position", cfg.catRoot.position);
+        root.setAttribute("rotation", cfg.catRoot.rotation);
+        root.setAttribute("scale", cfg.catRoot.scale);
+        target.appendChild(root);
 
-        const model = document.createElement("a-gltf-model");
-        model.setAttribute("src", MODEL_SRC);
-        model.setAttribute("position", MODEL_POSITION);
-        model.setAttribute("rotation", MODEL_ROTATION);
-        model.setAttribute("scale", MODEL_SCALE);
+        // 小猫
+        addModel(root, cfg.catModel, "0 0 0", "0 0 0", "1 1 1");
 
-        model.addEventListener("model-loaded", () => {
-          status.textContent = "target found / model loaded";
+        // 左右手锚点
+        const leftHand = document.createElement("a-entity");
+        leftHand.setAttribute("id", "left-hand");
+        leftHand.setAttribute("position", cfg.handAnchors.left.position);
+        leftHand.setAttribute("rotation", cfg.handAnchors.left.rotation || "0 0 0");
+        leftHand.setAttribute("scale", cfg.handAnchors.left.scale || "1 1 1");
+        root.appendChild(leftHand);
+
+        const rightHand = document.createElement("a-entity");
+        rightHand.setAttribute("id", "right-hand");
+        rightHand.setAttribute("position", cfg.handAnchors.right.position);
+        rightHand.setAttribute("rotation", cfg.handAnchors.right.rotation || "0 0 0");
+        rightHand.setAttribute("scale", cfg.handAnchors.right.scale || "1 1 1");
+        root.appendChild(rightHand);
+
+        // 调试小球：先对齐手的位置
+        if (cfg.debugHands) {
+          const leftDebug = document.createElement("a-sphere");
+          leftDebug.setAttribute("color", "red");
+          leftDebug.setAttribute("radius", "0.01");
+          leftHand.appendChild(leftDebug);
+
+          const rightDebug = document.createElement("a-sphere");
+          rightDebug.setAttribute("color", "blue");
+          rightDebug.setAttribute("radius", "0.01");
+          rightHand.appendChild(rightDebug);
+        }
+
+        const parentMap = {
+          root,
+          leftHand,
+          rightHand
+        };
+
+        // 这张卡要挂的所有小模型
+        (cfg.attachments || []).forEach((item) => {
+          const parent = parentMap[item.parent] || root;
+          addModel(
+            parent,
+            item.src,
+            item.position || "0 0 0",
+            item.rotation || "0 0 0",
+            item.scale || "1 1 1"
+          );
         });
 
-        model.addEventListener("model-error", (e) => {
-          status.textContent = "target found / model error";
-          console.log(e);
-        });
-
-        target.appendChild(model);
-        status.textContent = "target found / loading model...";
+        status.textContent = "models added";
       });
 
       target.addEventListener("targetLost", () => {
