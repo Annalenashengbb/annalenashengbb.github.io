@@ -1,0 +1,11 @@
+{
+  "left": "green",
+  "right": "blue",
+  "overrides": {
+    "catRoot": {
+      "position": "0 0 0.002",
+      "rotation": "90 0 180",
+      "scale": "1.7 1.7 1.7"
+    }
+  }
+}
