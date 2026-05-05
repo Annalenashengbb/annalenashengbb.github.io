@@ -4,9 +4,9 @@ window.CARD_CONFIG = {
 
   // 整个“小猫+手上物件”组合在卡面上的位置、方向、大小
   catRoot: {
-    position: "0 0 0.02",
+    position: "0 0 0.005",
     rotation: "0 180 0",
-    scale: "1 1 1"
+    scale: "100 100 100"
   },
 
   // 左右手的锚点位置（相对于小猫）
@@ -20,7 +20,7 @@ window.CARD_CONFIG = {
   },
 
   // 先打开，方便你看到左右手的小球调试点
-  debugHands: true,
+  debugHands: false,
 
   // 这张卡的模型组合
   // 左手 green，右手 blue
