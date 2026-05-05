@@ -7,7 +7,7 @@
 
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  <script src="./config.js"></script>
+  <script src="./config.js?v=6"></script>
 
   <style>
     html, body {
@@ -15,6 +15,7 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
+      touch-action: none;
     }
 
     #status {
@@ -67,19 +68,41 @@
       const target = document.getElementById("card-target");
 
       let built = false;
+      let spinRoot = null;
+
+      // 手指旋转参数
+      let dragging = false;
+      let startX = 0;
+      let startSpinZ = 0;
+      let currentSpinZ = 0;
+
+      // 灵敏度：数字越大，转得越快
+      const ROTATE_SENSITIVITY = 0.25;
+
+      function applySpin() {
+        if (!spinRoot) return;
+        spinRoot.setAttribute("rotation", `0 0 ${currentSpinZ}`);
+      }
 
       target.addEventListener("targetFound", () => {
-        status.textContent = "target found";
+        status.textContent = "target found · swipe left/right to rotate";
+
         if (built) return;
         built = true;
 
-        // 根节点：以后改猫的位置/旋转/缩放，只改这里
+        // 这一层专门负责手势旋转
+        spinRoot = document.createElement("a-entity");
+        spinRoot.setAttribute("id", "spin-root");
+        spinRoot.setAttribute("rotation", "0 0 0");
+        target.appendChild(spinRoot);
+
+        // 这一层保留你 config.js 里的猫位置 / 朝向 / 大小
         const root = document.createElement("a-entity");
         root.setAttribute("id", "combo-root");
         root.setAttribute("position", cfg.catRoot.position);
         root.setAttribute("rotation", cfg.catRoot.rotation);
         root.setAttribute("scale", cfg.catRoot.scale);
-        target.appendChild(root);
+        spinRoot.appendChild(root);
 
         // 小猫
         addModel(root, cfg.catModel, "0 0 0", "0 0 0", "1 1 1");
@@ -99,7 +122,7 @@
         rightHand.setAttribute("scale", cfg.handAnchors.right.scale || "1 1 1");
         root.appendChild(rightHand);
 
-        // 调试小球：先对齐手的位置
+        // 调试小球（如果 config.js 打开）
         if (cfg.debugHands) {
           const leftDebug = document.createElement("a-sphere");
           leftDebug.setAttribute("color", "red");
@@ -118,7 +141,6 @@
           rightHand
         };
 
-        // 这张卡要挂的所有小模型
         (cfg.attachments || []).forEach((item) => {
           const parent = parentMap[item.parent] || root;
           addModel(
@@ -130,12 +152,43 @@
           );
         });
 
-        status.textContent = "models added";
+        status.textContent = "models added · swipe left/right";
       });
 
       target.addEventListener("targetLost", () => {
         status.textContent = "target lost";
       });
+
+      // 手指开始
+      document.addEventListener("touchstart", (e) => {
+        if (!spinRoot) return;
+        if (!e.touches || e.touches.length !== 1) return;
+
+        dragging = true;
+        startX = e.touches[0].clientX;
+        startSpinZ = currentSpinZ;
+      }, { passive: true });
+
+      // 手指移动
+      document.addEventListener("touchmove", (e) => {
+        if (!dragging || !spinRoot) return;
+        if (!e.touches || e.touches.length !== 1) return;
+
+        const dx = e.touches[0].clientX - startX;
+        currentSpinZ = startSpinZ + dx * ROTATE_SENSITIVITY;
+        applySpin();
+
+        e.preventDefault();
+      }, { passive: false });
+
+      // 手指结束
+      document.addEventListener("touchend", () => {
+        dragging = false;
+      }, { passive: true });
+
+      document.addEventListener("touchcancel", () => {
+        dragging = false;
+      }, { passive: true });
     });
   </script>
 </body>
